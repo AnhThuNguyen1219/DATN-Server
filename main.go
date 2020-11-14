@@ -44,9 +44,17 @@ func main() {
 	router.POST("/auth/login", middleware.AddRedisClientMiddleware(route.Login, client))
 	router.POST("/api/token/refresh", middleware.AddRedisClientMiddleware(route.RefreshTokenAPI, client))
 
-	//router for content API
-	router.POST("/api/content/text", middleware.AuthMiddleware(route.CreateContentTextAPI))
+	//router for user
 	router.POST("/api/content/image", middleware.AuthMiddleware(route.CreateContentImageAPI))
+
+	//router for book API
+	router.GET("/api/newest", middleware.AuthMiddleware(route.GetListNewestBookHeader))
+
+	router.GET("/api/category/:category-id", middleware.AuthMiddleware(route.GetListCategoryBook))
+	router.GET("/api/author/:author-id", middleware.AuthMiddleware(route.GetListAuthorBook))
+	router.GET("/api/publisher/:publisher-id", middleware.AuthMiddleware(route.GetListPublisherBook))
+
+	router.GET("/api/book/:id", middleware.AuthMiddleware(route.GetBookbyID))
 
 	// Use handler of cors library to wrap the defined router above
 	handler := cors.Default().Handler(router)

@@ -2,9 +2,11 @@ package route
 
 import (
 	"errors"
+	"fmt"
 	"log"
 	"net/http"
 	"regexp"
+	"strconv"
 
 	"server/backend/auth"
 	"server/backend/database"
@@ -14,6 +16,10 @@ import (
 	"github.com/asaskevich/govalidator"
 	"github.com/go-redis/redis/v7"
 	"github.com/julienschmidt/httprouter"
+)
+
+var (
+	db = database.Connect()
 )
 
 func Login(w http.ResponseWriter, r *http.Request, _ httprouter.Params, client *redis.Client) {
@@ -61,7 +67,6 @@ func Login(w http.ResponseWriter, r *http.Request, _ httprouter.Params, client *
 		return
 	}
 
-	db := database.Connect()
 	isUsernameExist := database.IsUserExist(db, user.Username)
 
 	if isUsernameExist == false {
@@ -91,13 +96,25 @@ func Login(w http.ResponseWriter, r *http.Request, _ httprouter.Params, client *
 		utils.JSON(w, http.StatusUnprocessableEntity, saveErr.Error())
 		return
 	}
-
+	ID, AvatarURL, DOB, err := database.GetUserWithName(db, user.Username)
+	if err != nil {
+		utils.JSON(w, http.StatusBadRequest, "Infomation is incorrect") // Username is not exist, but show incorrect
+		return
+	}
 	utils.JSON(w, http.StatusOK, struct {
 		AccessToken  string `json:"accessToken"`
 		RefreshToken string `json:"refreshToken"`
+		ID           int    `json:"id"`
+		Username     string `json:"username"`
+		AvatarURL    string `json:"avatar_url"`
+		DOB          string `json:"dob"`
 	}{
 		AccessToken:  token.AccessToken,
 		RefreshToken: token.RefreshToken,
+		ID:           ID,
+		Username:     user.Username,
+		AvatarURL:    AvatarURL,
+		DOB:          DOB,
 	})
 }
 
@@ -121,35 +138,6 @@ func RefreshTokenAPI(w http.ResponseWriter, r *http.Request, _ httprouter.Params
 	}
 }
 
-//Content Text API
-type CreateContentTextInfor struct {
-	Text string `json:"content_text"`
-}
-
-func CreateContentTextAPI(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
-	// Get data from json request
-	var data CreateContentTextInfor
-	err := utils.DecodeJSONBody(w, r, &data)
-	if err != nil {
-		var mr *utils.MalformedRequest
-		if errors.As(err, &mr) {
-			http.Error(w, mr.Msg, mr.Status)
-		} else {
-			log.Println(err.Error())
-			http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
-		}
-		return
-	}
-	db := database.Connect()
-	err = database.CreateContentText(db, data.Text, data.Text)
-	if err != nil {
-		log.Println(err.Error())
-		utils.JSON(w, http.StatusInternalServerError, "Can't create new text content")
-		return
-	}
-}
-
-//Content Image API
 type CreateContentImageInfor struct {
 	Title          string `json: "content_title"'`
 	OriginalImgURL string `json:"original_img_url"`
@@ -170,11 +158,192 @@ func CreateContentImageAPI(w http.ResponseWriter, r *http.Request, _ httprouter.
 		}
 		return
 	}
-	db := database.Connect()
+
 	err = database.CreateContentImage(db, data.Title, data.OriginalImgURL, data.PreviewImgURL)
 	if err != nil {
 		log.Println(err.Error())
 		utils.JSON(w, http.StatusInternalServerError, "Can't create new message")
 		return
 	}
+}
+
+//For BOOK API
+
+func GetBookbyID(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
+
+	id, err := strconv.Atoi(p.ByName("id"))
+	if err != nil {
+		fmt.Println(err)
+	}
+	var getBookString string = "SELECT * FROM public.books WHERE id=$1"
+	ID, Title, Description, CreatedAt, DeletedAt, PublisherID, PublisherName, Cover, AuthorID, AuthorName, Categories, err := database.GetBookbyID(db, getBookString, id)
+	if err != nil {
+		utils.JSON(w, http.StatusInternalServerError, "Cannot get database")
+		return
+	}
+	if ID == -1 {
+		utils.JSON(w, http.StatusInternalServerError, "Cannot get database")
+		return
+	}
+	fmt.Println("Yes")
+	type Publisher struct {
+		ID   int    `json:"id"`
+		Name string `json:"name"`
+	}
+	type Author struct {
+		ID   int    `json:"id"`
+		Name string `json:"name"`
+	}
+	type Category struct {
+		ID   int    `json:"id"`
+		Name string `json:"name"`
+	}
+	var cates []Category
+	for _, categoryy := range Categories {
+		var cate Category
+		cate.ID = categoryy.ID
+		cate.Name = categoryy.Name
+		cates = append(cates, cate)
+	}
+	utils.JSON(w, http.StatusOK, struct {
+		ID          int        `json:"id"`
+		Title       string     `json:"title"`
+		Description string     `json:"description"`
+		CreatedAt   string     `json:"created_at"`
+		DeletedAt   string     `json:"deleted_at"`
+		Publisher   Publisher  `json:"publisher"`
+		Cover       string     `json:"cover"`
+		Author      Author     `json:"author"`
+		Category    []Category `json:"category"`
+	}{
+		ID:          ID,
+		Title:       Title,
+		Description: Description,
+		CreatedAt:   CreatedAt,
+		DeletedAt:   DeletedAt,
+		Publisher: Publisher{
+			ID:   PublisherID,
+			Name: PublisherName,
+		},
+		Cover: Cover,
+		Author: Author{
+			ID:   AuthorID,
+			Name: AuthorName,
+		},
+		Category: cates,
+	})
+	return
+}
+
+func GetListNewestBookHeader(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+
+	var getNewestBookString string = "SELECT id, title, cover FROM public.books ORDER BY created_at DESC limit 10"
+	rows, err := database.GetListBookHeader(db, getNewestBookString)
+	if err != nil {
+		utils.JSON(w, http.StatusInternalServerError, "Cannot get database")
+	}
+	fmt.Println("Yes")
+	type Book struct {
+		ID    int    `json:"id"`
+		Title string `json:"title"`
+		Cover string `json:"cover"`
+	}
+	type ListBook []Book
+	var listBook ListBook
+	for _, boo := range rows {
+		var bo Book
+		bo.ID = boo.ID
+		bo.Title = boo.Title
+		bo.Cover = boo.Cover
+		listBook = append(listBook, bo)
+	}
+
+	utils.JSON(w, http.StatusOK, listBook)
+	return
+}
+
+func GetListAuthorBook(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
+
+	author_id, _ := strconv.Atoi(p.ByName("author-id"))
+	var getAuthorBookString string = "SELECT id, title, cover FROM public.books where author_id=$1 order by created_at DESC "
+	rows, err := database.GetListAuthorBookHeader(db, getAuthorBookString, author_id)
+	if err != nil {
+		utils.JSON(w, http.StatusInternalServerError, "Cannot get database")
+	}
+	fmt.Println("Yes")
+	type Book struct {
+		ID    int    `json:"id"`
+		Title string `json:"title"`
+		Cover string `json:"cover"`
+	}
+	type ListBook []Book
+	var listBook ListBook
+	for _, boo := range rows {
+		var bo Book
+		bo.ID = boo.ID
+		bo.Title = boo.Title
+		bo.Cover = boo.Cover
+
+		listBook = append(listBook, bo)
+	}
+
+	utils.JSON(w, http.StatusOK, listBook)
+	return
+}
+
+func GetListCategoryBook(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
+	category_id, _ := strconv.Atoi(p.ByName("category-id"))
+	var getCategoryBookString string = "SELECT b.id, b.title, b.cover FROM public.books b join public.category_book cb on b.id = cb.book_id	join public.categories t on t.id = cb.category_id where t.id=$1 ORDER BY b.created_at DESC limit 10;"
+	rows, err := database.GetListAuthorBookHeader(db, getCategoryBookString, category_id)
+	if err != nil {
+		utils.JSON(w, http.StatusInternalServerError, "Cannot get database")
+	}
+	fmt.Println("Yes")
+	type Book struct {
+		ID    int    `json:"id"`
+		Title string `json:"title"`
+		Cover string `json:"cover"`
+	}
+	type ListBook []Book
+	var listBook ListBook
+	for _, boo := range rows {
+		var bo Book
+		bo.ID = boo.ID
+		bo.Title = boo.Title
+		bo.Cover = boo.Cover
+
+		listBook = append(listBook, bo)
+	}
+
+	utils.JSON(w, http.StatusOK, listBook)
+	return
+}
+
+func GetListPublisherBook(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
+
+	publisher_id, _ := strconv.Atoi(p.ByName("publisher-id"))
+	var getPublisherBookString string = "SELECT id, title, cover FROM public.books where publisher_id=$1 order by created_at DESC "
+	rows, err := database.GetListPublisherBookHeader(db, getPublisherBookString, publisher_id)
+	if err != nil {
+		utils.JSON(w, http.StatusInternalServerError, "Cannot get database")
+	}
+	fmt.Println("Yes")
+	type Book struct {
+		ID    int    `json:"id"`
+		Title string `json:"title"`
+		Cover string `json:"cover"`
+	}
+	type ListBook []Book
+	var listBook ListBook
+	for _, boo := range rows {
+		var bo Book
+		bo.ID = boo.ID
+		bo.Title = boo.Title
+		bo.Cover = boo.Cover
+
+		listBook = append(listBook, bo)
+	}
+
+	utils.JSON(w, http.StatusOK, listBook)
+	return
 }

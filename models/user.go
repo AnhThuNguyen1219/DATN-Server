@@ -11,6 +11,12 @@ type User struct {
 	Username string
 	Password string
 }
+type UserInfo struct {
+	ID        int
+	Username  string
+	AvatarURL string
+	DOB       string
+}
 
 func Hash(password string) (string, error) {
 	bytes, err := bcrypt.GenerateFromPassword([]byte(password), 14)
