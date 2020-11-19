@@ -139,7 +139,7 @@ func RefreshTokenAPI(w http.ResponseWriter, r *http.Request, _ httprouter.Params
 }
 
 type CreateContentImageInfor struct {
-	Title          string `json: "content_title"'`
+	Title          string `json:"content_title"`
 	OriginalImgURL string `json:"original_img_url"`
 	PreviewImgURL  string `json:"preview_img_url"`
 }
@@ -241,6 +241,7 @@ func GetListNewestBookHeader(w http.ResponseWriter, r *http.Request, _ httproute
 	rows, err := database.GetListBookHeader(db, getNewestBookString)
 	if err != nil {
 		utils.JSON(w, http.StatusInternalServerError, "Cannot get database")
+		return
 	}
 	fmt.Println("Yes")
 	type Book struct {
@@ -258,7 +259,11 @@ func GetListNewestBookHeader(w http.ResponseWriter, r *http.Request, _ httproute
 		listBook = append(listBook, bo)
 	}
 
-	utils.JSON(w, http.StatusOK, listBook)
+	utils.JSON(w, http.StatusOK, struct {
+		Books []Book `json:"books"`
+	}{
+		Books: listBook,
+	})
 	return
 }
 
@@ -346,4 +351,79 @@ func GetListPublisherBook(w http.ResponseWriter, r *http.Request, p httprouter.P
 
 	utils.JSON(w, http.StatusOK, listBook)
 	return
+}
+
+//Post list favour book
+type AddListFavourInfor struct {
+	UserID string `json:"user_id"`
+	BookID string `json:"book_id"`
+}
+
+func PostFavourABook(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+	fmt.Println("here")
+	var data AddListFavourInfor
+	err := utils.DecodeJSONBody(w, r, &data)
+	if err != nil {
+		var mr *utils.MalformedRequest
+		if errors.As(err, &mr) {
+			http.Error(w, mr.Msg, mr.Status)
+
+		} else {
+			log.Println(err.Error())
+			http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+
+		}
+		return
+	}
+	var addFavourString = "INSERT INTO public.list_favourite_books(user_id, book_id) VALUES ($1, $2);"
+	err = database.PostFavourABook(db, addFavourString, data.UserID, data.BookID)
+	if err != nil {
+		log.Println(err.Error())
+		utils.JSON(w, http.StatusInternalServerError, "Can't add into list, please try again later")
+		fmt.Println("There")
+		return
+	}
+	utils.JSON(w, http.StatusOK, "Add favour successfully")
+
+}
+
+type AddListReviewInfor struct {
+	UserID     string `json:"user_id"`
+	BookID     string `json:"book_id"`
+	Rating     string `json:"rating"`
+	RateReview string `json:"rate_review"`
+}
+
+func PostReviewABook(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+	fmt.Println("here review")
+	var data AddListReviewInfor
+	err := utils.DecodeJSONBody(w, r, &data)
+	if err != nil {
+		var mr *utils.MalformedRequest
+		if errors.As(err, &mr) {
+			http.Error(w, mr.Msg, mr.Status)
+
+		} else {
+			log.Println(err.Error())
+			http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+
+		}
+		return
+	}
+	var addFavourString = "insert into public.list_rating_books (user_id, book_id, rating, rate_review) values ($1, $2, $3, $4)"
+	err, check := database.PostReviewABook(db, addFavourString, data.UserID, data.BookID, data.Rating, data.RateReview)
+	fmt.Println("here review2")
+	if err != nil {
+		utils.JSON(w, http.StatusInternalServerError, "Can't add into list, please try again later")
+		fmt.Println("There")
+		return
+	}
+	if check == false {
+		utils.JSON(w, http.StatusBadRequest, "Can't add into list, please try again later")
+		fmt.Println("There")
+		return
+	}
+
+	utils.JSON(w, http.StatusOK, "Add review successfully")
+
 }

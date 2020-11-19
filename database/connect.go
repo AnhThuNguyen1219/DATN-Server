@@ -2,6 +2,7 @@ package database
 
 import (
 	"database/sql"
+	"fmt"
 	"log"
 	"server/backend/models"
 
@@ -299,3 +300,32 @@ func GetBookbyID(db *sql.DB, getBookString string, id int) (ID int, Title string
 // 	return
 
 // }
+
+func PostFavourABook(db *sql.DB, addFavourString string, userID string, bookID string) (err error) {
+	_, err = db.Exec(addFavourString, userID, bookID)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func PostReviewABook(db *sql.DB, addReviewString string, userID string, bookID string, rating string, rateReview string) (err error, check bool) {
+	var isExist int
+	row := db.QueryRow("SELECT COUNT (*) FROM public.list_rating_books where user_id=$1 and book_id=$2", userID, bookID)
+	err = row.Scan(&isExist)
+	if err != nil {
+		fmt.Println("isExist")
+		return err, false
+	}
+	if isExist != 0 {
+		fmt.Println("isExist2")
+		return nil, false
+	}
+	fmt.Println(isExist)
+	_, err = db.Exec(addReviewString, userID, bookID, rating, rateReview)
+	if err != nil {
+		fmt.Println("isExist3")
+		return err, false
+	}
+	return nil, true
+}

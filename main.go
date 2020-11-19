@@ -48,16 +48,22 @@ func main() {
 	router.POST("/api/content/image", middleware.AuthMiddleware(route.CreateContentImageAPI))
 
 	//router for book API
-	router.GET("/api/newest", middleware.AuthMiddleware(route.GetListNewestBookHeader))
+	router.GET("/api/newest", route.GetListNewestBookHeader)
 
-	router.GET("/api/category/:category-id", middleware.AuthMiddleware(route.GetListCategoryBook))
-	router.GET("/api/author/:author-id", middleware.AuthMiddleware(route.GetListAuthorBook))
-	router.GET("/api/publisher/:publisher-id", middleware.AuthMiddleware(route.GetListPublisherBook))
+	router.GET("/api/category/:category-id", route.GetListCategoryBook)
+	router.GET("/api/author/:author-id", route.GetListAuthorBook)
+	router.GET("/api/publisher/:publisher-id", route.GetListPublisherBook)
 
-	router.GET("/api/book/:id", middleware.AuthMiddleware(route.GetBookbyID))
+	router.GET("/api/book/:id", route.GetBookbyID)
+
+	//router for user API
+	//list favourite
+
+	router.POST("/api/favourite", middleware.AuthMiddleware(route.PostFavourABook))
+	router.POST("/api/review", middleware.AuthMiddleware(route.PostReviewABook))
 
 	// Use handler of cors library to wrap the defined router above
-	handler := cors.Default().Handler(router)
+	handler := cors.AllowAll().Handler(router)
 	port := os.Getenv("PORT")
 	if port == "" {
 		port = "9000" // Default port if not specified

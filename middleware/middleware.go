@@ -3,7 +3,6 @@ package middleware
 import (
 	"net/http"
 
-	"server/backend/auth"
 	"server/backend/utils"
 
 	"github.com/go-redis/redis/v7"
@@ -14,13 +13,17 @@ type RedisHandle func(http.ResponseWriter, *http.Request, httprouter.Params, *re
 
 func AuthMiddleware(f httprouter.Handle) httprouter.Handle {
 	return func(w http.ResponseWriter, r *http.Request, param httprouter.Params) {
-		isValid, err := auth.IsTokenValid(r)
-		if err != nil {
+		// isValid, err := auth.IsTokenValid(r)
+		// if err != nil {
+		// 	utils.JSON(w, http.StatusInternalServerError, "Internal Server Erroraaa")
+		// 	return
+		// }
+		// if !isValid {
+		// 	utils.JSON(w, http.StatusUnauthorized, "Token invalid")
+		// 	return
+		// }
+		if r.Header.Get("Authorization") == "" {
 			utils.JSON(w, http.StatusInternalServerError, "Internal Server Erroraaa")
-			return
-		}
-		if !isValid {
-			utils.JSON(w, http.StatusUnauthorized, "Token invalid")
 			return
 		}
 		f(w, r, param)
