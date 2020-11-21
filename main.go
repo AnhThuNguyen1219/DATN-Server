@@ -44,9 +44,6 @@ func main() {
 	router.POST("/auth/login", middleware.AddRedisClientMiddleware(route.Login, client))
 	router.POST("/api/token/refresh", middleware.AddRedisClientMiddleware(route.RefreshTokenAPI, client))
 
-	//router for user
-	router.POST("/api/content/image", middleware.AuthMiddleware(route.CreateContentImageAPI))
-
 	//router for book API
 	router.GET("/api/newest", route.GetListNewestBookHeader)
 
@@ -57,6 +54,9 @@ func main() {
 	router.GET("/api/book/:id", route.GetBookbyID)
 
 	//router for user API
+	router.GET("/api/user/:id", route.GetUserByID)
+	router.GET("/api/user/:id/favourite", route.GetListFavourBookofUser)
+	router.GET("/api/user/:id/review", route.GetListReviewofUser)
 	//list favourite
 
 	router.POST("/api/favourite", middleware.AuthMiddleware(route.PostFavourABook))

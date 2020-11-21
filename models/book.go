@@ -30,3 +30,13 @@ type BookHeader struct {
 	Title string
 	Cover string
 }
+type ReviewOfUser struct {
+	ID        int
+	BookID    int
+	BookTitle string
+	BookCover string
+	Rating    int
+	Title     string
+	Review    string
+	CreatedAt string
+}

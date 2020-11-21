@@ -94,52 +94,25 @@ func GetUserWithName(db *sql.DB, username string) (int, string, string, error) {
 	return ID, AvatarURL, DOB, nil
 }
 
-func CreateContentInterface(db *sql.DB, name string) (int, error) {
-	var id int
-	var createContentInterfaceQueryString string = "INSERT INTO public.usr_content_interface(name) VALUES ($1);"
-	_, err := db.Exec(createContentInterfaceQueryString, name)
+func GetUserByID(db *sql.DB, id string) (int, string, string, string, error) {
+	row, err := db.Query("SELECT id, username, avatar_url, dob FROM public.users WHERE id=$1", id)
 	if err != nil {
-		return -1, err
+		return -1, "", "", "", err
 	}
-	var selectContentInterfaceIDQuery string = "SELECT id FROM public.usr_content_interface WHERE name=$1;"
-	row, err := db.Query(selectContentInterfaceIDQuery, name)
-	if err != nil {
-		return -1, err
-	}
+	var (
+		ID        int
+		Username  string
+		AvatarURL string
+		DOB       string
+	)
 	for row.Next() {
-		err := row.Scan(&id)
+		err := row.Scan(&ID, &Username, &AvatarURL, &DOB)
 		if err != nil {
-			return -1, err
+			return -1, "", "", "", err
 		}
 	}
-	return id, nil
-}
 
-//Code about save content into database go here
-func CreateContentText(db *sql.DB, text string, name string) error {
-	id, err := CreateContentInterface(db, name)
-	if err != nil {
-		return err
-	}
-	var createContentTextQueryString string = "INSERT INTO public.usr_content_text(id, text)VALUES ($1, $2);"
-	_, err = db.Exec(createContentTextQueryString, id, text)
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-func CreateContentImage(db *sql.DB, title string, originalImgURL string, previewImgURL string) error {
-	id, err := CreateContentInterface(db, title)
-	if err != nil {
-		return err
-	}
-	var createContentImgQueryString string = "INSERT INTO public.usr_content_image(id, original_img_url, preview_img_url) VALUES ($1, $2, $3);"
-	_, err = db.Exec(createContentImgQueryString, id, originalImgURL, previewImgURL)
-	if err != nil {
-		return err
-	}
-	return nil
+	return ID, Username, AvatarURL, DOB, nil
 }
 
 func GetListBookHeader(db *sql.DB, queryString string) (ListBookHeader []models.BookHeader, err error) {
@@ -159,6 +132,44 @@ func GetListBookHeader(db *sql.DB, queryString string) (ListBookHeader []models.
 
 	return
 
+}
+
+func GetListBookHeaderWithParam(db *sql.DB, queryString string, id string) (ListBookHeader []models.BookHeader, err error) {
+	rows, err := db.Query(queryString, id)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var bookHeader models.BookHeader
+		err = rows.Scan(&bookHeader.ID, &bookHeader.Title, &bookHeader.Cover)
+		if err != nil {
+			return nil, err
+		}
+		ListBookHeader = append(ListBookHeader, bookHeader)
+	}
+
+	return
+
+}
+
+func GetListReviewofUser(db *sql.DB, queryString string, id string) (ListReview []models.ReviewOfUser, err error) {
+	rows, err := db.Query(queryString, id)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var review models.ReviewOfUser
+		err = rows.Scan(&review.ID, &review.BookID, &review.BookTitle, &review.BookCover, &review.Rating, &review.Title, &review.Review, &review.CreatedAt)
+		if err != nil {
+			fmt.Println(err)
+			return nil, err
+		}
+		ListReview = append(ListReview, review)
+	}
+
+	return
 }
 
 func GetListAuthorBookHeader(db *sql.DB, queryString string, author_id int) (ListBookHeader []models.BookHeader, err error) {
@@ -309,7 +320,7 @@ func PostFavourABook(db *sql.DB, addFavourString string, userID string, bookID s
 	return nil
 }
 
-func PostReviewABook(db *sql.DB, addReviewString string, userID string, bookID string, rating string, rateReview string) (err error, check bool) {
+func PostReviewABook(db *sql.DB, addReviewString string, userID string, bookID string, rating string, title string, rateReview string, createdAt string) (err error, check bool) {
 	var isExist int
 	row := db.QueryRow("SELECT COUNT (*) FROM public.list_rating_books where user_id=$1 and book_id=$2", userID, bookID)
 	err = row.Scan(&isExist)
@@ -322,7 +333,7 @@ func PostReviewABook(db *sql.DB, addReviewString string, userID string, bookID s
 		return nil, false
 	}
 	fmt.Println(isExist)
-	_, err = db.Exec(addReviewString, userID, bookID, rating, rateReview)
+	_, err = db.Exec(addReviewString, userID, bookID, rating, title, rateReview, createdAt)
 	if err != nil {
 		fmt.Println("isExist3")
 		return err, false

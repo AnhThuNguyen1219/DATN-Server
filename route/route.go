@@ -138,33 +138,30 @@ func RefreshTokenAPI(w http.ResponseWriter, r *http.Request, _ httprouter.Params
 	}
 }
 
-type CreateContentImageInfor struct {
-	Title          string `json:"content_title"`
-	OriginalImgURL string `json:"original_img_url"`
-	PreviewImgURL  string `json:"preview_img_url"`
-}
+//For USER API
 
-func CreateContentImageAPI(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
-	// Get data from json request
-	var data CreateContentImageInfor
-	err := utils.DecodeJSONBody(w, r, &data)
+func GetUserByID(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
+	id := p.ByName("id")
+	ID, Username, AvatarURL, DOB, err := database.GetUserByID(db, id)
 	if err != nil {
-		var mr *utils.MalformedRequest
-		if errors.As(err, &mr) {
-			http.Error(w, mr.Msg, mr.Status)
-		} else {
-			log.Println(err.Error())
-			http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
-		}
+		utils.JSON(w, http.StatusInternalServerError, "Cannot get database")
 		return
 	}
-
-	err = database.CreateContentImage(db, data.Title, data.OriginalImgURL, data.PreviewImgURL)
-	if err != nil {
-		log.Println(err.Error())
-		utils.JSON(w, http.StatusInternalServerError, "Can't create new message")
+	if ID == -1 {
+		utils.JSON(w, http.StatusInternalServerError, "Cannot get database")
 		return
 	}
+	utils.JSON(w, http.StatusOK, struct {
+		ID        int    `json:"id"`
+		Username  string `json:"username"`
+		AvatarURL string `json:"avatar_url"`
+		DOB       string `json:"dob"`
+	}{
+		ID:        ID,
+		Username:  Username,
+		AvatarURL: AvatarURL,
+		DOB:       DOB,
+	})
 }
 
 //For BOOK API
@@ -231,6 +228,80 @@ func GetBookbyID(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
 			Name: AuthorName,
 		},
 		Category: cates,
+	})
+	return
+}
+func GetListFavourBookofUser(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
+	user_id := p.ByName("id")
+	var getFavourBookString string = "SELECT b.id, b.title, b.cover FROM public.books b join public.list_favourite_books fb on b.id = fb.book_id join public.users u on u.id = fb.user_id where u.id=$1;"
+	rows, err := database.GetListBookHeaderWithParam(db, getFavourBookString, user_id)
+	if err != nil {
+		utils.JSON(w, http.StatusInternalServerError, "Cannot get database")
+		return
+	}
+	fmt.Println("Yes")
+	type Book struct {
+		ID    int    `json:"id"`
+		Title string `json:"title"`
+		Cover string `json:"cover"`
+	}
+	type ListBook []Book
+	var listBook ListBook
+	for _, boo := range rows {
+		var bo Book
+		bo.ID = boo.ID
+		bo.Title = boo.Title
+		bo.Cover = boo.Cover
+		listBook = append(listBook, bo)
+	}
+
+	utils.JSON(w, http.StatusOK, struct {
+		Books []Book `json:"books"`
+	}{
+		Books: listBook,
+	})
+	return
+}
+
+func GetListReviewofUser(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
+	user_id := p.ByName("id")
+	var getReviewBookString string = "SELECT rb.id, b.id, b.title, b.cover, rb.rating , rb.rate_title, rb.rate_review, rb.created_at FROM public.list_rating_books rb join public.books b on b.id = rb.book_id join public.users u on u.id = rb.user_id where u.id=$1;"
+	rows, err := database.GetListReviewofUser(db, getReviewBookString, user_id)
+	if err != nil {
+		utils.JSON(w, http.StatusInternalServerError, "Cannot get database 1")
+		return
+	}
+	fmt.Println("Yes")
+	type Review struct {
+		ID        int    `json:"id"`
+		BookID    int    `json:"book_id"`
+		BookTitle string `json:"book_title"`
+		BookCover string `json:"book_cover"`
+		Rating    int    `json:"rating"`
+		Title     string `json:"title"`
+		Review    string `json:"review"`
+		CreatedAt string `json:"created_at"`
+	}
+	type ListReview []Review
+	var listReview ListReview
+	for _, boo := range rows {
+		var bo Review
+		bo.ID = boo.ID
+		bo.BookID = boo.BookID
+		bo.BookTitle = boo.BookTitle
+		bo.BookCover = boo.BookCover
+		bo.Rating = boo.Rating
+		bo.Title = boo.Title
+		bo.Review = boo.Review
+		bo.CreatedAt = boo.CreatedAt
+
+		listReview = append(listReview, bo)
+	}
+
+	utils.JSON(w, http.StatusOK, struct {
+		Reviews []Review `json:"review"`
+	}{
+		Reviews: listReview,
 	})
 	return
 }
@@ -391,7 +462,9 @@ type AddListReviewInfor struct {
 	UserID     string `json:"user_id"`
 	BookID     string `json:"book_id"`
 	Rating     string `json:"rating"`
+	Title      string `json:"title"`
 	RateReview string `json:"rate_review"`
+	CreatedAt  string `json:"time"`
 }
 
 func PostReviewABook(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
@@ -410,8 +483,8 @@ func PostReviewABook(w http.ResponseWriter, r *http.Request, _ httprouter.Params
 		}
 		return
 	}
-	var addFavourString = "insert into public.list_rating_books (user_id, book_id, rating, rate_review) values ($1, $2, $3, $4)"
-	err, check := database.PostReviewABook(db, addFavourString, data.UserID, data.BookID, data.Rating, data.RateReview)
+	var addFavourString = "insert into public.list_rating_books (user_id, book_id, rating, rate_title, rate_review, created_at) values ($1, $2, $3, $4, $5, $6)"
+	err, check := database.PostReviewABook(db, addFavourString, data.UserID, data.BookID, data.Rating, data.Title, data.RateReview, data.CreatedAt)
 	fmt.Println("here review2")
 	if err != nil {
 		utils.JSON(w, http.StatusInternalServerError, "Can't add into list, please try again later")
