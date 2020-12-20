@@ -46,14 +46,26 @@ func main() {
 
 	//router for book API
 	router.GET("/api/newest", route.GetListNewestBookHeader)
-
+	router.GET("/api/category", route.GetListCategoryName)
 	router.GET("/api/category/:category-id", route.GetListCategoryBook)
+	router.GET("/api/book", route.GetSearchBook)
+	router.POST("/api/book", middleware.AuthMiddleware(route.PostANewBook))
+	//author
+	router.POST("/api/author", middleware.AuthMiddleware(route.PostANewAuthor))
+	router.GET("/api/author", route.GetListAuthor)
 	router.GET("/api/author/:author-id", route.GetListAuthorBook)
+	//publisher
+	router.GET("/api/publisher", route.GetListPublisher)
 	router.GET("/api/publisher/:publisher-id", route.GetListPublisherBook)
+	router.POST("/api/publisher", middleware.AuthMiddleware(route.PostANewPublisher))
 
 	router.GET("/api/book/:id", route.GetBookbyID)
 
+	router.GET("/api/book/:id/review", route.GetListReviewofBook)
+	router.GET("/api/book/:id/review-sum", route.GetSumReviewofBook)
+
 	//router for user API
+	// router.GET("/api/new/user", route.NewUser)
 	router.GET("/api/user/:id", route.GetUserByID)
 	router.GET("/api/user/:id/favourite", route.GetListFavourBookofUser)
 	router.GET("/api/user/:id/review", route.GetListReviewofUser)

@@ -29,7 +29,6 @@ func AuthMiddleware(f httprouter.Handle) httprouter.Handle {
 		f(w, r, param)
 	}
 }
-
 func AddRedisClientMiddleware(f RedisHandle, client *redis.Client) httprouter.Handle {
 	return func(w http.ResponseWriter, r *http.Request, param httprouter.Params) {
 		f(w, r, param, client)

@@ -40,3 +40,15 @@ type ReviewOfUser struct {
 	Review    string
 	CreatedAt string
 }
+type ReviewOfBook struct {
+	ID        int
+	UserID    int
+	Username  string
+	UserAva   string
+	Rating    int
+	Title     string
+	Review    string
+	CreatedAt string
+}
+
+//for json
