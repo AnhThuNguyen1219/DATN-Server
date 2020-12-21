@@ -119,7 +119,110 @@ func Login(w http.ResponseWriter, r *http.Request, _ httprouter.Params, client *
 		Role:         Role,
 	})
 }
+func SignUp(w http.ResponseWriter, r *http.Request, _ httprouter.Params, client *redis.Client) {
+	// Convert json data from request to type User
+	var user models.User
+	err := utils.DecodeJSONBody(w, r, &user)
+	if err != nil {
+		var mr *utils.MalformedRequest
+		if errors.As(err, &mr) {
+			http.Error(w, mr.Msg, mr.Status)
+		} else {
+			log.Println(err.Error())
+			http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+		}
+		return
+	}
 
+	if govalidator.IsNull(user.Username) || govalidator.IsNull(user.Password) {
+		utils.JSON(w, http.StatusBadRequest, "Input cannot be empty")
+		return
+	}
+
+	// Escape string before query to sql server
+	user.Username = models.Santize(user.Username)
+	user.Password = models.Santize(user.Password)
+
+	// Check with regex
+	match, err := regexp.MatchString("^[a-zA-Z][a-zA-Z0-9]{4,255}", user.Username)
+	if err != nil {
+		utils.JSON(w, http.StatusInternalServerError, "Internal Server Error")
+		return
+	}
+	if !match {
+		utils.JSON(w, http.StatusBadRequest, "Username must longer than 3 characters can only include: a-z, A-Z, 0-9")
+		return
+	}
+
+	match, err = regexp.MatchString(".{5,255}$", user.Password)
+	if err != nil {
+		utils.JSON(w, http.StatusInternalServerError, "Internal Server Error")
+		return
+	}
+	if !match {
+		utils.JSON(w, http.StatusBadRequest, "Password length must between 5 and 255 characters")
+		return
+	}
+
+	isUsernameExist := database.IsUserExist(db, user.Username)
+
+	if isUsernameExist != false {
+		utils.JSON(w, http.StatusBadRequest, "Username or Password incorrect") // Username is exist, but show incorrect
+		return
+	}
+	//New a User
+
+	err = database.PostNewUser(db, user.Username, user.Password)
+	if err != nil {
+		utils.JSON(w, http.StatusUnauthorized, "Username or Password incorrect")
+		return
+	}
+
+	hashedPassword := database.GetHashedPassword(db, user.Username)
+
+	check := models.CheckPasswordHash(hashedPassword, user.Password)
+
+	if check != true {
+		utils.JSON(w, http.StatusUnauthorized, "Username or Password incorrect")
+		return
+	}
+
+	token, errCreate := auth.CreateToken(user.Username)
+
+	if errCreate != nil {
+		log.Println(errCreate.Error())
+		utils.JSON(w, http.StatusInternalServerError, "Internal Server Error")
+		return
+	}
+
+	saveErr := auth.SaveAuthRedis(client, user.Username, token)
+	if saveErr != nil {
+		utils.JSON(w, http.StatusUnprocessableEntity, saveErr.Error())
+		return
+	}
+	ID, AvatarURL, DOB, Role, err := database.GetUserWithName(db, user.Username)
+	if err != nil {
+		utils.JSON(w, http.StatusBadRequest, "Infomation is incorrect") // Username is not exist, but show incorrect
+		return
+	}
+	utils.JSON(w, http.StatusOK, struct {
+		AccessToken  string `json:"accessToken"`
+		RefreshToken string `json:"refreshToken"`
+		ID           int    `json:"id"`
+		Username     string `json:"username"`
+		AvatarURL    string `json:"avatar_url"`
+		DOB          string `json:"dob"`
+		Role         string `json:"role"`
+	}{
+		AccessToken:  token.AccessToken,
+		RefreshToken: token.RefreshToken,
+		ID:           ID,
+		Username:     user.Username,
+		AvatarURL:    AvatarURL,
+		DOB:          DOB,
+		Role:         Role,
+	})
+}
 func RefreshTokenAPI(w http.ResponseWriter, r *http.Request, _ httprouter.Params, client *redis.Client) {
 	token, status, statusMsg := auth.RefreshToken(client, r)
 	if token != nil {

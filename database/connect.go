@@ -45,6 +45,16 @@ func IsUserExist(db *sql.DB, username string) bool {
 	}
 	return false
 }
+func PostNewUser(db *sql.DB, username string, password string) error {
+	var insertUser = "INSERT INTO public.users(username, password, avatar_url, dob, created_at, role) VALUES ($1, $2, $3, $4, current_timestamp,0);"
+	avatar := "https://res.cloudinary.com/anhthu1219/image/upload/v1608561347/book_cover/customLogo_ppubap.jpg"
+	dob := "1970-01-01"
+	_, err := db.Exec(insertUser, username, password, avatar, dob)
+	if err != nil {
+		return err
+	}
+	return nil
+}
 
 // GetHashedPassword get hashed password
 func GetHashedPassword(db *sql.DB, username string) (hashedPassword string) {
@@ -154,7 +164,6 @@ func GetListBookHeaderWithParam(db *sql.DB, queryString string, id string) (List
 	return
 
 }
-
 func GetListBookHeaderWith3Param(db *sql.DB, queryString string, id string) (ListBookHeader []models.BookHeader, err error) {
 	rows, err := db.Query(queryString, id, id, id)
 	if err != nil {
@@ -173,7 +182,6 @@ func GetListBookHeaderWith3Param(db *sql.DB, queryString string, id string) (Lis
 	return
 
 }
-
 func GetListReviewofUser(db *sql.DB, queryString string, id string) (ListReview []models.ReviewOfUser, err error) {
 	rows, err := db.Query(queryString, id)
 	if err != nil {
@@ -192,7 +200,6 @@ func GetListReviewofUser(db *sql.DB, queryString string, id string) (ListReview 
 
 	return
 }
-
 func PostANewAuthor(db *sql.DB, queryString string, author string) error {
 	//check duplicate
 	getDuplicate := "SELECT COUNT (*) FROM public.authors WHERE name=$1"

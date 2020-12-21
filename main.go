@@ -42,6 +42,7 @@ func main() {
 		fmt.Fprint(w, "<h1>Welcome</h1>")
 	})
 	router.POST("/auth/login", middleware.AddRedisClientMiddleware(route.Login, client))
+	router.POST("/auth/signup", middleware.AddRedisClientMiddleware(route.SignUp, client))
 	router.POST("/api/token/refresh", middleware.AddRedisClientMiddleware(route.RefreshTokenAPI, client))
 
 	//router for book API
