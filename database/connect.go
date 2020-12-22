@@ -428,6 +428,18 @@ func GetBookbyID(db *sql.DB, getBookString string, id int) (ID int, Title string
 	return
 
 }
+func DelABook(db *sql.DB, delBookString string, delBookCateString string, book_id string) (err error) {
+	_, err = db.Exec(delBookCateString, book_id)
+	if err != nil {
+		return err
+	}
+	_, err = db.Exec(delBookString, book_id)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
 func PostFavourABook(db *sql.DB, addFavourString string, userID string, bookID string) (err error) {
 	_, err = db.Exec(addFavourString, userID, bookID)
 	if err != nil {
@@ -449,7 +461,7 @@ func PostReviewABook(db *sql.DB, addReviewString string, userID string, bookID s
 		return nil, false
 	}
 	fmt.Println(isExist)
-	_, err = db.Exec(addReviewString, userID, bookID, rating, title, rateReview, createdAt)
+	_, err = db.Exec(addReviewString, userID, bookID, rating, title, rateReview)
 	if err != nil {
 		fmt.Println("isExist3")
 		return err, false
@@ -484,4 +496,22 @@ func GetListReviewofBook(db *sql.DB, queryString string, bookID string) (ListRev
 	}
 
 	return
+}
+func GetReviewByID(db *sql.DB, queryString string, id string) (ID int, BookID int, BookTitle string, BookCover string, Rating int, Title string, Review string, CreatedAt string, err error) {
+	row := db.QueryRow(queryString, id)
+	if row == nil {
+		return -1, -1, "", "", -1, "", "", "", errors.New("Does not have any review")
+	}
+	err = row.Scan(&ID, &BookID, &BookTitle, &BookCover, &Rating, &Title, &Review, &CreatedAt)
+
+	return
+}
+
+func PutReviewByID(db *sql.DB, queryString string, Rating string, RateReview string, RateTitle string, id string) (err error) {
+	_, err = db.Exec(queryString, Rating, RateReview, RateTitle, id)
+	return err
+}
+func DelAReview(db *sql.DB, delReviewString string, review_id string) (err error) {
+	_, err = db.Exec(delReviewString, review_id)
+	return err
 }

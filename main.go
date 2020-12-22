@@ -61,6 +61,7 @@ func main() {
 	router.POST("/api/publisher", middleware.AuthMiddleware(route.PostANewPublisher))
 
 	router.GET("/api/book/:id", route.GetBookbyID)
+	router.DELETE("/api/book/:id", route.DelBookbyID)
 
 	router.GET("/api/book/:id/review", route.GetListReviewofBook)
 	router.GET("/api/book/:id/review-sum", route.GetSumReviewofBook)
@@ -70,6 +71,10 @@ func main() {
 	router.GET("/api/user/:id", route.GetUserByID)
 	router.GET("/api/user/:id/favourite", route.GetListFavourBookofUser)
 	router.GET("/api/user/:id/review", route.GetListReviewofUser)
+	//review
+	router.GET("/api/review/:id", route.GetReview)
+	router.PUT("/api/review/:id", middleware.AuthMiddleware(route.PutAReview))
+	router.DELETE("/api/review/:id", middleware.AuthMiddleware(route.DelAReview))
 	//list favourite
 
 	router.POST("/api/favourite", middleware.AuthMiddleware(route.PostFavourABook))

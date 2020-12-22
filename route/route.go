@@ -420,6 +420,16 @@ func GetBookbyID(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
 	})
 	return
 }
+func DelBookbyID(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
+	book_id := p.ByName("id")
+	var delBookString = "DELETE FROM public.books WHERE id=$1"
+	var delBookCateString = "DELETE FROM public.category_book WHERE book_id=$1"
+	err := database.DelABook(db, delBookString, delBookCateString, book_id)
+	if err != nil {
+		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+	}
+	utils.JSON(w, http.StatusOK, "Deleted")
+}
 func GetListFavourBookofUser(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
 	user_id := p.ByName("id")
 	var getFavourBookString string = "SELECT b.id, b.title, b.cover FROM public.books b join public.list_favourite_books fb on b.id = fb.book_id join public.users u on u.id = fb.user_id where u.id=$1;"
@@ -495,6 +505,75 @@ func GetListReviewofUser(w http.ResponseWriter, r *http.Request, p httprouter.Pa
 	return
 }
 
+func GetReview(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
+	review_id := p.ByName("id")
+	var getReviewString string = "SELECT rb.id, b.id, b.title, b.cover, rb.rating , rb.rate_title, rb.rate_review, rb.created_at FROM public.list_rating_books rb join public.books b on b.id = rb.book_id join public.users u on u.id = rb.user_id where rb.id=$1"
+	ID, BookID, BookTitle, BookCover, Rating, Title, Review, CreatedAt, err := database.GetReviewByID(db, getReviewString, review_id)
+	if err != nil {
+		utils.JSON(w, http.StatusInternalServerError, "Cannot get database")
+		return
+	}
+	utils.JSON(w, http.StatusOK, struct {
+		ID        int    `json:"id"`
+		BookID    int    `json:"book_id"`
+		BookTitle string `json:"book_title"`
+		BookCover string `json:"book_cover"`
+		Rating    int    `json:"rating"`
+		Title     string `json:"title"`
+		Review    string `json:"review"`
+		CreatedAt string `json:"created_at"`
+	}{
+		ID:        ID,
+		BookID:    BookID,
+		BookTitle: BookTitle,
+		BookCover: BookCover,
+		Rating:    Rating,
+		Title:     Title,
+		Review:    Review,
+		CreatedAt: CreatedAt,
+	})
+	return
+}
+
+type ReviewJson struct {
+	Rating     string `json:"rating"`
+	RateReview string `json:"rate_review"`
+	RateTitle  string `json:"rate_title"`
+}
+
+func PutAReview(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
+	review_id := p.ByName("id")
+	var data ReviewJson
+	err := utils.DecodeJSONBody(w, r, &data)
+	if err != nil {
+		var mr *utils.MalformedRequest
+		if errors.As(err, &mr) {
+			http.Error(w, mr.Msg, mr.Status)
+
+		} else {
+			log.Println(err.Error())
+
+			http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+
+		}
+		return
+	}
+	var putReviewString = "UPDATE public.list_rating_books SET rating=$1, rate_review=$2, rate_title=$3, created_at=current_timestamp WHERE id=$4;"
+	err = database.PutReviewByID(db, putReviewString, data.Rating, data.RateReview, data.RateTitle, review_id)
+	if err != nil {
+		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+	}
+	utils.JSON(w, http.StatusOK, "Update successfully")
+}
+func DelAReview(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
+	review_id := p.ByName("id")
+	var delReviewString = "DELETE FROM public.list_rating_books WHERE id=$1"
+	err := database.DelAReview(db, delReviewString, review_id)
+	if err != nil {
+		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+	}
+	utils.JSON(w, http.StatusOK, "Deleted")
+}
 func GetListNewestBookHeader(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 
 	var getNewestBookString string = "SELECT id, title, cover FROM public.books ORDER BY created_at DESC limit 10"
@@ -830,7 +909,7 @@ func PostReviewABook(w http.ResponseWriter, r *http.Request, _ httprouter.Params
 		}
 		return
 	}
-	var addFavourString = "insert into public.list_rating_books (user_id, book_id, rating, rate_title, rate_review, created_at) values ($1, $2, $3, $4, $5, $6)"
+	var addFavourString = "insert into public.list_rating_books (user_id, book_id, rating, rate_title, rate_review, created_at) values ($1, $2, $3, $4, $5, current_timestamp)"
 	err, check := database.PostReviewABook(db, addFavourString, data.UserID, data.BookID, data.Rating, data.Title, data.RateReview, data.CreatedAt)
 	fmt.Println("here review2")
 	if err != nil {
